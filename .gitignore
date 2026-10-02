@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+*.log
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-shm
+*.sqlite-wal
+
+# Vite
+apps/web/dist/
+.vite/
+
+# Env
+.env
+.env.*
+!.env.example

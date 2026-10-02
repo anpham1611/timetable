@@ -1,0 +1,32 @@
+{
+  "name": "timetable",
+  "version": "1.0.0",
+  "description": "Timetable app: students and teachers view/print timetables; teachers import from Excel.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" run dev",
+    "build": "pnpm --filter @timetable/shared run build && pnpm --filter \"./apps/*\" run build",
+    "test": "pnpm -r run test",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.8.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.8.1",
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.11.0"
+  }
+}
