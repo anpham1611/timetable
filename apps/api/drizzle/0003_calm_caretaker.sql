@@ -1,0 +1,1 @@
+ALTER TABLE `lesson` ADD `timetable_id` integer NOT NULL REFERENCES timetable(id);

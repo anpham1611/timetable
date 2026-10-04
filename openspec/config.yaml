@@ -1,32 +1,33 @@
 schema: spec-driven
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+context: |
+  This is a small full-stack web application in a pnpm monorepo.
+  Product specifications should focus on observable behavior and requirements.
+  Repository engineering conventions are defined in the root AGENTS.md.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Keep proposals focused on one coherent change.
+    - Clearly state scope and out-of-scope items.
+    - Prefer observable requirements over implementation details.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+  specs:
+    - Write requirements as observable and testable behavior.
+    - Include important success, failure, and edge-case scenarios.
+
+  tasks:
+    - Break implementation into small, verifiable tasks.
+    - Keep tasks ordered by dependency.
+
+operations:
+  apply:
+    guidance:
+      - Read the root AGENTS.md before implementing changes.
+      - Follow the approved OpenSpec scope.
+      - Do not silently expand the scope of a change.
+      - Run relevant validation after implementation.
+
+  archive:
+    guidance:
+      - Verify the implementation against the approved specification.
+      - Summarize verification results.

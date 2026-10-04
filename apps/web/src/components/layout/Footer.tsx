@@ -7,13 +7,13 @@ export function Footer() {
   const adminEmail = getAdminEmail();
 
   return (
-    <footer className="mx-auto max-w-md px-6 py-6 text-center text-xs text-muted-foreground print:text-black">
+    <footer className="mx-auto max-w-md px-6 py-6 text-center text-xs text-muted-foreground md:max-w-3xl lg:max-w-5xl print:hidden">
       <p>{DISCLAIMER}</p>
       <p className="mt-1">
         <a
           href={`mailto:${adminEmail}`}
           aria-label={`Quản trị - gửi email tới ${adminEmail}`}
-          className="font-medium text-primary underline underline-offset-2 hover:opacity-80 print:text-black"
+          className="font-medium text-primary underline underline-offset-2 hover:opacity-80"
         >
           Quản trị
         </a>

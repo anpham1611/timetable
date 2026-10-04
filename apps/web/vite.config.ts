@@ -12,6 +12,13 @@ export default defineConfig({
   server: {
     proxy: {
       "/health": "http://localhost:3000",
+      "/visits": "http://localhost:3000",
+      "/timetables": "http://localhost:3000",
+      "/classes": "http://localhost:3000",
+      "/students": "http://localhost:3000",
+      "/teachers": "http://localhost:3000",
+      "/grids": "http://localhost:3000",
+      "/api": "http://localhost:3000",
     },
   },
   test: {
