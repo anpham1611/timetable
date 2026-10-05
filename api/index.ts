@@ -11,9 +11,13 @@ const app = buildServer();
 const ready = app.ready();
 
 /**
- * Vercel Node serverless entry point. Every request routed here by the
- * rewrites in vercel.json is handed to Fastify's underlying HTTP server, which
- * runs the matching route handler and writes the response.
+ * Vercel Node serverless entry point for all API routes.
+ *
+ * Every API request is rewritten to this function by vercel.json while
+ * preserving the original URL path (the rewrites carry the real path through,
+ * so `req.url` is e.g. "/api/admin/login" or "/timetables/active"). We hand the
+ * raw request to Fastify's underlying HTTP server, which matches the route and
+ * writes the response.
  */
 export default async function handler(
   req: IncomingMessage,

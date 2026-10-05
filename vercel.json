@@ -5,14 +5,15 @@
   "outputDirectory": "apps/web/dist",
   "framework": null,
   "rewrites": [
-    { "source": "/health", "destination": "/api/[...path]" },
-    { "source": "/health/:path*", "destination": "/api/[...path]" },
-    { "source": "/visits/:path*", "destination": "/api/[...path]" },
-    { "source": "/timetables/:path*", "destination": "/api/[...path]" },
-    { "source": "/classes/:path*", "destination": "/api/[...path]" },
-    { "source": "/students/:path*", "destination": "/api/[...path]" },
-    { "source": "/teachers/:path*", "destination": "/api/[...path]" },
-    { "source": "/grids/:path*", "destination": "/api/[...path]" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/health", "destination": "/api" },
+    { "source": "/health/:path*", "destination": "/api" },
+    { "source": "/visits/:path*", "destination": "/api" },
+    { "source": "/timetables/:path*", "destination": "/api" },
+    { "source": "/classes/:path*", "destination": "/api" },
+    { "source": "/students/:path*", "destination": "/api" },
+    { "source": "/teachers/:path*", "destination": "/api" },
+    { "source": "/grids/:path*", "destination": "/api" },
+    { "source": "/((?!api$).*)", "destination": "/index.html" }
   ]
 }
