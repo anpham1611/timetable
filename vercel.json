@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --filter @timetable/shared run build && pnpm --filter @timetable/web run build",
+  "outputDirectory": "apps/web/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/health", "destination": "/api/[...path]" },
+    { "source": "/health/:path*", "destination": "/api/[...path]" },
+    { "source": "/visits/:path*", "destination": "/api/[...path]" },
+    { "source": "/timetables/:path*", "destination": "/api/[...path]" },
+    { "source": "/classes/:path*", "destination": "/api/[...path]" },
+    { "source": "/students/:path*", "destination": "/api/[...path]" },
+    { "source": "/teachers/:path*", "destination": "/api/[...path]" },
+    { "source": "/grids/:path*", "destination": "/api/[...path]" }
+  ]
+}
