@@ -1,8 +1,5 @@
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
-import { createClient, type Config } from "@libsql/client";
-import type { ResultSet } from "@libsql/client";
-import type { SQLiteTransaction } from "drizzle-orm/sqlite-core";
-import type { ExtractTablesWithRelations } from "drizzle-orm";
+import { createClient } from "@libsql/client";
 import * as schema from "./schema.js";
 
 /**
@@ -16,7 +13,7 @@ import * as schema from "./schema.js";
  */
 const DB_ENGINE = (process.env.DB_ENGINE ?? "sqlite").toLowerCase();
 
-function resolveConfig(): Config {
+function resolveConfig() {
   if (DB_ENGINE === "turso") {
     const url = process.env.TURSO_DATABASE_URL;
     if (!url) {
@@ -43,21 +40,19 @@ const client = createClient(resolveConfig());
  */
 export type Db = LibSQLDatabase<typeof schema>;
 
+export const db: Db = drizzle(client, { schema });
+
 /**
  * A libSQL transaction handle, as passed to the `db.transaction(async (tx) =>
- * ...)` callback. Structurally narrower than {@link Db} (it has no `batch`), so
- * repository functions that must accept either the top-level db or a transaction
- * take {@link DbOrTx}.
+ * ...)` callback. Derived from the driver's own callback parameter so it stays
+ * correct across @libsql/drizzle versions without importing internal types
+ * (which re-export from @libsql/core and can fail to resolve on strict installs).
+ * Structurally narrower than {@link Db} (no `batch`), so repository functions
+ * that accept either the top-level db or a transaction take {@link DbOrTx}.
  */
-export type Transaction = SQLiteTransaction<
-  "async",
-  ResultSet,
-  typeof schema,
-  ExtractTablesWithRelations<typeof schema>
->;
+export type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /** Either the top-level database or an open transaction. */
 export type DbOrTx = Db | Transaction;
 
-export const db: Db = drizzle(client, { schema });
 export { schema };
