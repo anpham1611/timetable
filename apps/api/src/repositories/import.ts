@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db as defaultDb, type Db } from "../db/index.js";
+import { db as defaultDb, type DbOrTx } from "../db/index.js";
 import {
   grade,
   lesson,
@@ -23,97 +23,91 @@ import {
  * Create a new timetable (TKB): inactive, taking the next ordinal after the
  * current max. Returns the new timetable id.
  */
-export function createTimetable(
+export async function createTimetable(
   effectiveFrom: Date,
-  db: Db = defaultDb
-): number {
-  const max = db
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const max = await db
     .select({ max: sql<number>`coalesce(max(${timetable.ordinal}), 0)` })
     .from(timetable)
     .get();
   const nextOrdinal = (max?.max ?? 0) + 1;
-  const inserted = db
+  const inserted = await db
     .insert(timetable)
     .values({ ordinal: nextOrdinal, effectiveFrom, isActive: 0 })
     .run();
   return Number(inserted.lastInsertRowid);
 }
 
-export function insertGrade(
+export async function insertGrade(
   timetableId: number,
   name: string,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db.insert(grade).values({ timetableId, name: name.trim() }).run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db.insert(grade).values({ timetableId, name: name.trim() }).run();
+  return Number(r.lastInsertRowid);
 }
 
-export function insertRoom(
+export async function insertRoom(
   timetableId: number,
   name: string,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db.insert(room).values({ timetableId, name: name.trim() }).run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db.insert(room).values({ timetableId, name: name.trim() }).run();
+  return Number(r.lastInsertRowid);
 }
 
-export function insertClass(
+export async function insertClass(
   timetableId: number,
   name: string,
   gradeId: number,
   homeRoomId: number | null,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db
-      .insert(schoolClass)
-      .values({ timetableId, name: name.trim(), gradeId, homeRoomId })
-      .run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db
+    .insert(schoolClass)
+    .values({ timetableId, name: name.trim(), gradeId, homeRoomId })
+    .run();
+  return Number(r.lastInsertRowid);
 }
 
-export function insertStudent(
+export async function insertStudent(
   timetableId: number,
   name: string,
   classId: number,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db
-      .insert(student)
-      .values({ timetableId, name: name.trim(), classId })
-      .run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db
+    .insert(student)
+    .values({ timetableId, name: name.trim(), classId })
+    .run();
+  return Number(r.lastInsertRowid);
 }
 
-export function insertTeacher(
+export async function insertTeacher(
   timetableId: number,
   name: string,
   shortCode: string,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db
-      .insert(teacher)
-      .values({ timetableId, name: name.trim(), shortCode: shortCode.trim() })
-      .run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db
+    .insert(teacher)
+    .values({ timetableId, name: name.trim(), shortCode: shortCode.trim() })
+    .run();
+  return Number(r.lastInsertRowid);
 }
 
-export function insertSubject(
+export async function insertSubject(
   timetableId: number,
   name: string,
   shortCode: string,
-  db: Db = defaultDb
-): number {
-  return Number(
-    db
-      .insert(subject)
-      .values({ timetableId, name: name.trim(), shortCode: shortCode.trim() })
-      .run().lastInsertRowid
-  );
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db
+    .insert(subject)
+    .values({ timetableId, name: name.trim(), shortCode: shortCode.trim() })
+    .run();
+  return Number(r.lastInsertRowid);
 }
 
 /**
@@ -121,24 +115,23 @@ export function insertSubject(
  * ten fixed grid slots shared across all timetables (not a per-TKB snapshot), so
  * this one entity is reused rather than re-inserted.
  */
-export function ensurePeriod(
+export async function ensurePeriod(
   session: string,
   ordinal: number,
-  db: Db = defaultDb
-): number {
-  const existing = db
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const existing = await db
     .select({ id: period.id })
     .from(period)
     .where(and(eq(period.session, session), eq(period.ordinal, ordinal)))
     .get();
   if (existing) return existing.id;
-  return Number(
-    db.insert(period).values({ session, ordinal }).run().lastInsertRowid
-  );
+  const r = await db.insert(period).values({ session, ordinal }).run();
+  return Number(r.lastInsertRowid);
 }
 
 /** Insert one lesson row and return its id. */
-export function insertLesson(
+export async function insertLesson(
   values: {
     timetableId: number;
     classId: number;
@@ -149,16 +142,17 @@ export function insertLesson(
     category: number | null;
     choiceGroup: string | null;
   },
-  db: Db = defaultDb
-): number {
-  return Number(db.insert(lesson).values(values).run().lastInsertRowid);
+  db: DbOrTx = defaultDb
+): Promise<number> {
+  const r = await db.insert(lesson).values(values).run();
+  return Number(r.lastInsertRowid);
 }
 
 /** Link a teacher to a lesson (multi-teacher cells insert several). */
-export function insertLessonTeacher(
+export async function insertLessonTeacher(
   lessonId: number,
   teacherId: number,
-  db: Db = defaultDb
-): void {
-  db.insert(lessonTeacher).values({ lessonId, teacherId }).run();
+  db: DbOrTx = defaultDb
+): Promise<void> {
+  await db.insert(lessonTeacher).values({ lessonId, teacherId }).run();
 }

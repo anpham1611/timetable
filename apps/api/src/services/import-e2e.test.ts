@@ -53,7 +53,7 @@ async function workbook(): Promise<Buffer> {
 
 describe("E2E: import → activate → read within the new TKB", () => {
   it("drives the full admin import flow end to end", async () => {
-    const db = createTestDb();
+    const db = await createTestDb();
 
     // 1. Import creates a new inactive TKB snapshot.
     const result = await importTimetable(await workbook(), db);
@@ -61,25 +61,25 @@ describe("E2E: import → activate → read within the new TKB", () => {
     const tkb = result.timetableId;
 
     // 2. Before activation it is not on the public active list.
-    expect(getActiveTimetables(db).items.find((i) => i.id === tkb)).toBeUndefined();
+    expect((await getActiveTimetables(db)).items.find((i) => i.id === tkb)).toBeUndefined();
 
     // 3. Activate it.
-    expect(toggleTimetableActive(tkb, true, db)).toBe(true);
-    const active = getActiveTimetables(db);
+    expect(await toggleTimetableActive(tkb, true, db)).toBe(true);
+    const active = await getActiveTimetables(db);
     expect(active.items.find((i) => i.id === tkb)).toBeDefined();
     expect(active.defaultSelectedId).toBe(tkb);
 
     // 4. Directory lookups resolve from this TKB's snapshot.
-    const classes = getClasses(tkb, db);
+    const classes = await getClasses(tkb, db);
     expect(classes.items.map((c) => c.name)).toEqual(["11A5"]);
     const classId = classes.items[0]!.id;
 
-    expect(getStudents("Trần", tkb, db).items[0]!.name).toBe("Trần Thị B");
-    expect(getTeachers("Nguyễn", tkb, db).items[0]!.name).toBe("Nguyễn Văn A");
+    expect((await getStudents("Trần", tkb, db)).items[0]!.name).toBe("Trần Thị B");
+    expect((await getTeachers("Nguyễn", tkb, db)).items[0]!.name).toBe("Nguyễn Văn A");
 
     // 5. The class grid resolves from this TKB, with a room move only for the
     //    lesson taught outside the home room.
-    const grid = resolveClassGrid(classId, tkb, db)!;
+    const grid = (await resolveClassGrid(classId, tkb, db))!;
     expect(grid.timetableId).toBe(tkb);
     const filled = grid.slots.filter((s) => s.cell !== null);
     expect(filled).toHaveLength(2);
@@ -88,7 +88,7 @@ describe("E2E: import → activate → read within the new TKB", () => {
     expect(moves[0]!.cell!.room).toBe("P.Lab");
 
     // 6. Reads scoped to a different TKB see nothing of this one.
-    expect(getClasses(tkb + 999, db).items).toEqual([]);
-    expect(resolveClassGrid(classId, tkb + 999, db)).toBeNull();
+    expect((await getClasses(tkb + 999, db)).items).toEqual([]);
+    expect(await resolveClassGrid(classId, tkb + 999, db)).toBeNull();
   });
 });

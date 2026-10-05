@@ -102,7 +102,7 @@ export async function adminRoutes(
         if (!parsed.success) {
           return reply.code(400).send({ error: "invalid request body" });
         }
-        const ok = toggleTimetableActive(id, parsed.data.isActive, db);
+        const ok = await toggleTimetableActive(id, parsed.data.isActive, db);
         if (!ok) return notFound(reply, "timetable");
         return { id, isActive: parsed.data.isActive };
       }

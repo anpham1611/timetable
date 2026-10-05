@@ -6,6 +6,6 @@ import { db } from "../db/index.js";
  * Proves DB connectivity for the health check.
  */
 export async function pingDatabase(): Promise<boolean> {
-  const result = db.get<{ ok: number }>(sql`SELECT 1 as ok`);
+  const result = await db.get<{ ok: number }>(sql`SELECT 1 as ok`);
   return result?.ok === 1;
 }

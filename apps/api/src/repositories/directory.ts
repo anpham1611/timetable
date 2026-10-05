@@ -15,8 +15,11 @@ export interface ClassRow {
  * Repository: classes within one published TKB joined to their grade, ordered
  * by grade name then class name so the client can group/order the dropdown.
  */
-export function listClasses(timetableId: number, db: Db = defaultDb): ClassRow[] {
-  return db
+export async function listClasses(
+  timetableId: number,
+  db: Db = defaultDb
+): Promise<ClassRow[]> {
+  return await db
     .select({
       id: schoolClass.id,
       name: schoolClass.name,
@@ -41,13 +44,13 @@ export interface StudentRow {
  * Repository: students within one published TKB whose name matches `q`
  * (case-insensitive substring), joined to their class, capped at SEARCH_LIMIT.
  */
-export function searchStudents(
+export async function searchStudents(
   q: string,
   timetableId: number,
   db: Db = defaultDb
-): StudentRow[] {
+): Promise<StudentRow[]> {
   const pattern = `%${q.toLowerCase()}%`;
-  return db
+  return await db
     .select({
       id: student.id,
       name: student.name,
@@ -76,13 +79,13 @@ export interface TeacherRow {
  * Repository: teachers within one published TKB whose name matches `q`
  * (case-insensitive substring), identity only, capped at SEARCH_LIMIT.
  */
-export function searchTeachers(
+export async function searchTeachers(
   q: string,
   timetableId: number,
   db: Db = defaultDb
-): TeacherRow[] {
+): Promise<TeacherRow[]> {
   const pattern = `%${q.toLowerCase()}%`;
-  return db
+  return await db
     .select({ id: teacher.id, name: teacher.name })
     .from(teacher)
     .where(

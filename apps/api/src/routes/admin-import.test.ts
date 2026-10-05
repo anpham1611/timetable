@@ -116,7 +116,7 @@ describe("POST /admin/import", () => {
 
   it("imports a filled template as a new inactive TKB", async () => {
     setCreds();
-    const db = createTestDb();
+    const db = await createTestDb();
     const app = buildServer({ db });
     const auth = await login(app);
     const file = await filledWorkbook([rowA]);
@@ -126,19 +126,17 @@ describe("POST /admin/import", () => {
     const result = importResultSchema.parse(res.json());
     expect(result.lessonsCreated).toBe(1);
 
-    const tkb = db
-      .select()
-      .from(timetable)
-      .all()
-      .find((t) => t.id === result.timetableId)!;
+    const tkb = (await db.select().from(timetable).all()).find(
+      (t) => t.id === result.timetableId
+    )!;
     expect(tkb.isActive).toBe(0);
-    expect(db.select().from(lesson).all()).toHaveLength(1);
+    expect(await db.select().from(lesson).all()).toHaveLength(1);
     await app.close();
   });
 
   it("creates a distinct TKB on a second import", async () => {
     setCreds();
-    const db = createTestDb();
+    const db = await createTestDb();
     const app = buildServer({ db });
     const auth = await login(app);
     const file = await filledWorkbook([rowA]);
@@ -150,13 +148,13 @@ describe("POST /admin/import", () => {
       (await post(app, auth, multipartBody("b.xlsx", file))).json()
     );
     expect(second.timetableId).not.toBe(first.timetableId);
-    expect(db.select().from(timetable).all()).toHaveLength(2);
+    expect(await db.select().from(timetable).all()).toHaveLength(2);
     await app.close();
   });
 
   it("rejects an invalid workbook with 400 and creates nothing", async () => {
     setCreds();
-    const db = createTestDb();
+    const db = await createTestDb();
     const app = buildServer({ db });
     const auth = await login(app);
 
@@ -169,13 +167,13 @@ describe("POST /admin/import", () => {
     // Body carries a located error { error: { sheet, message, ... } }.
     const body = importErrorResponseSchema.parse(res.json());
     expect(body.error.message).toMatch(/workbook/i);
-    expect(db.select().from(timetable).all()).toHaveLength(0);
+    expect(await db.select().from(timetable).all()).toHaveLength(0);
     await app.close();
   });
 
   it("returns a located error for a referential problem", async () => {
     setCreds();
-    const db = createTestDb();
+    const db = await createTestDb();
     const app = buildServer({ db });
     const auth = await login(app);
     // Lesson references a teacher code that the Teacher sheet does not declare.
@@ -187,13 +185,13 @@ describe("POST /admin/import", () => {
     const body = importErrorResponseSchema.parse(res.json());
     expect(body.error.sheet).toBe(LESSON_SHEET);
     expect(body.error.column).toBe("teacherCodes");
-    expect(db.select().from(timetable).all()).toHaveLength(0);
+    expect(await db.select().from(timetable).all()).toHaveLength(0);
     await app.close();
   });
 
   it("is gated by a valid admin session", async () => {
     setCreds();
-    const db = createTestDb();
+    const db = await createTestDb();
     const app = buildServer({ db });
     const file = await filledWorkbook([rowA]);
     const res = await app.inject({

@@ -168,10 +168,10 @@ describe("admin logout", () => {
 });
 
 describe("admin timetable list + toggle", () => {
-  function seededApp() {
+  async function seededApp() {
     setCreds();
-    const db = createTestDb();
-    db.insert(timetable)
+    const db = await createTestDb();
+    await db.insert(timetable)
       .values([
         { ordinal: 1, effectiveFrom: new Date("2026-09-01T00:00:00Z"), isActive: 1 },
         { ordinal: 2, effectiveFrom: new Date("2026-09-15T00:00:00Z"), isActive: 0 },
@@ -181,7 +181,7 @@ describe("admin timetable list + toggle", () => {
   }
 
   it("lists active and inactive TKBs", async () => {
-    const app = seededApp();
+    const app = await seededApp();
     const auth = await login(app);
     const res = await app.inject({
       method: "GET",
@@ -194,7 +194,7 @@ describe("admin timetable list + toggle", () => {
   });
 
   it("toggles a TKB's active state", async () => {
-    const app = seededApp();
+    const app = await seededApp();
     const auth = await login(app);
     const res = await app.inject({
       method: "PATCH",
@@ -215,7 +215,7 @@ describe("admin timetable list + toggle", () => {
   });
 
   it("returns 404 when toggling an unknown TKB", async () => {
-    const app = seededApp();
+    const app = await seededApp();
     const auth = await login(app);
     const res = await app.inject({
       method: "PATCH",
@@ -228,7 +228,7 @@ describe("admin timetable list + toggle", () => {
   });
 
   it("rejects an invalid toggle body with 400", async () => {
-    const app = seededApp();
+    const app = await seededApp();
     const auth = await login(app);
     const res = await app.inject({
       method: "PATCH",

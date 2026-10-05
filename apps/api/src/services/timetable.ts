@@ -48,15 +48,17 @@ export function computeDefaultSelectedId(
  * This is the single source of truth for "which TKB does a read see", shared by
  * the directory and grid services so lookups and grids stay in lock-step.
  */
-export function resolveReadTimetableId(
+export async function resolveReadTimetableId(
   requested: number | undefined,
   db?: Db
-): number | null {
+): Promise<number | null> {
   if (requested !== undefined) {
-    const exists = db ? timetableExists(requested, db) : timetableExists(requested);
+    const exists = db
+      ? await timetableExists(requested, db)
+      : await timetableExists(requested);
     return exists ? requested : null;
   }
-  const rows = db ? listActiveTimetableRows(db) : listActiveTimetableRows();
+  const rows = db ? await listActiveTimetableRows(db) : await listActiveTimetableRows();
   return computeDefaultSelectedId(
     rows.map((r) => ({
       id: r.id,
@@ -71,8 +73,10 @@ export function resolveReadTimetableId(
  * Service layer: returns active TKBs mapped to the shared contract plus the
  * default-selected id, validated against the shared schema.
  */
-export function getActiveTimetables(db?: Db): ActiveTimetablesResponse {
-  const rows = db ? listActiveTimetables(db) : listActiveTimetables();
+export async function getActiveTimetables(
+  db?: Db
+): Promise<ActiveTimetablesResponse> {
+  const rows = db ? await listActiveTimetables(db) : await listActiveTimetables();
   const items = rows.map((r) => ({
     id: r.id,
     ordinal: r.ordinal,
@@ -86,8 +90,10 @@ export function getActiveTimetables(db?: Db): ActiveTimetablesResponse {
  * Service layer: returns every timetable (active and inactive) mapped to the
  * admin contract and validated against the shared schema.
  */
-export function listAdminTimetables(db?: Db): AdminTimetableListResponse {
-  const rows = db ? listAllTimetables(db) : listAllTimetables();
+export async function listAdminTimetables(
+  db?: Db
+): Promise<AdminTimetableListResponse> {
+  const rows = db ? await listAllTimetables(db) : await listAllTimetables();
   const items = rows.map((r) => ({
     id: r.id,
     ordinal: r.ordinal,
@@ -102,12 +108,12 @@ export function listAdminTimetables(db?: Db): AdminTimetableListResponse {
  * Service layer: sets a timetable's active state. Returns false when no
  * timetable with that id exists (caller maps to not-found).
  */
-export function toggleTimetableActive(
+export async function toggleTimetableActive(
   id: number,
   isActive: boolean,
   db?: Db
-): boolean {
+): Promise<boolean> {
   return db
-    ? setTimetableActive(id, isActive, db)
-    : setTimetableActive(id, isActive);
+    ? await setTimetableActive(id, isActive, db)
+    : await setTimetableActive(id, isActive);
 }

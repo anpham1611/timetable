@@ -23,7 +23,7 @@ export interface PeriodRow {
 }
 
 /** All periods, ordered SÁNG before CHIỀU and by ordinal. */
-export function listPeriods(db: Db = defaultDb): PeriodRow[] {
+export async function listPeriods(db: Db = defaultDb): Promise<PeriodRow[]> {
   return db
     .select({
       id: period.id,
@@ -48,7 +48,7 @@ export function findClass(
   classId: number,
   timetableId: number,
   db: Db = defaultDb
-): ClassRow | undefined {
+): Promise<ClassRow | undefined> {
   return db
     .select({ id: schoolClass.id, name: schoolClass.name, homeRoomId: schoolClass.homeRoomId })
     .from(schoolClass)
@@ -67,7 +67,7 @@ export function findStudent(
   studentId: number,
   timetableId: number,
   db: Db = defaultDb
-): StudentRow | undefined {
+): Promise<StudentRow | undefined> {
   return db
     .select({
       id: student.id,
@@ -90,7 +90,7 @@ export function findTeacher(
   teacherId: number,
   timetableId: number,
   db: Db = defaultDb
-): TeacherRow | undefined {
+): Promise<TeacherRow | undefined> {
   return db
     .select({ id: teacher.id, name: teacher.name })
     .from(teacher)
@@ -143,24 +143,25 @@ export function lessonsForClass(
   classId: number,
   timetableId: number,
   db: Db = defaultDb
-): LessonRow[] {
+): Promise<LessonRow[]> {
   return selectLessons(db)
     .where(and(eq(lesson.classId, classId), eq(lesson.timetableId, timetableId)))
     .all();
 }
 
 /** The lessons a teacher teaches within one published TKB, across all classes. */
-export function lessonsForTeacher(
+export async function lessonsForTeacher(
   teacherId: number,
   timetableId: number,
   db: Db = defaultDb
-): LessonRow[] {
-  const lessonIds = db
-    .select({ lessonId: lessonTeacher.lessonId })
-    .from(lessonTeacher)
-    .where(eq(lessonTeacher.teacherId, teacherId))
-    .all()
-    .map((r) => r.lessonId);
+): Promise<LessonRow[]> {
+  const lessonIds = (
+    await db
+      .select({ lessonId: lessonTeacher.lessonId })
+      .from(lessonTeacher)
+      .where(eq(lessonTeacher.teacherId, teacherId))
+      .all()
+  ).map((r) => r.lessonId);
   if (lessonIds.length === 0) return [];
   return selectLessons(db)
     .where(and(inArray(lesson.id, lessonIds), eq(lesson.timetableId, timetableId)))
@@ -168,8 +169,8 @@ export function lessonsForTeacher(
 }
 
 /** Whether a timetable (TKB) with this id exists. */
-export function timetableExists(timetableId: number, db: Db = defaultDb): boolean {
-  const row = db
+export async function timetableExists(timetableId: number, db: Db = defaultDb): Promise<boolean> {
+  const row = await db
     .select({ id: timetable.id })
     .from(timetable)
     .where(eq(timetable.id, timetableId))
@@ -183,7 +184,7 @@ export function timetableExists(timetableId: number, db: Db = defaultDb): boolea
  */
 export function listActiveTimetableRows(
   db: Db = defaultDb
-): { id: number; effectiveFrom: Date }[] {
+): Promise<{ id: number; effectiveFrom: Date }[]> {
   return db
     .select({ id: timetable.id, effectiveFrom: timetable.effectiveFrom })
     .from(timetable)
@@ -193,26 +194,27 @@ export function listActiveTimetableRows(
 }
 
 /** The lesson ids a student is enrolled in (their chosen electives). */
-export function electiveLessonIdsForStudent(
+export async function electiveLessonIdsForStudent(
   studentId: number,
   db: Db = defaultDb
-): number[] {
-  return db
-    .select({ lessonId: studentLesson.lessonId })
-    .from(studentLesson)
-    .where(eq(studentLesson.studentId, studentId))
-    .all()
-    .map((r) => r.lessonId);
+): Promise<number[]> {
+  return (
+    await db
+      .select({ lessonId: studentLesson.lessonId })
+      .from(studentLesson)
+      .where(eq(studentLesson.studentId, studentId))
+      .all()
+  ).map((r) => r.lessonId);
 }
 
 /** Teacher short codes grouped by lesson id, for the supplied lessons. */
-export function teachersForLessons(
+export async function teachersForLessons(
   lessonIds: number[],
   db: Db = defaultDb
-): Map<number, string[]> {
+): Promise<Map<number, string[]>> {
   const byLesson = new Map<number, string[]>();
   if (lessonIds.length === 0) return byLesson;
-  const rows = db
+  const rows = await db
     .select({
       lessonId: lessonTeacher.lessonId,
       name: teacher.name,

@@ -31,15 +31,15 @@ const DAYS: GridDay[] = [2, 3, 4, 5, 6, 7];
  *   - otherwise the default active TKB (home view's defaultSelectedId), or null
  *     when no active TKB exists.
  */
-function resolveTimetableId(
+async function resolveTimetableId(
   requested: number | undefined,
   db?: Db
-): number | null {
+): Promise<number | null> {
   if (requested !== undefined) {
-    const exists = db ? timetableExists(requested, db) : timetableExists(requested);
+    const exists = db ? await timetableExists(requested, db) : await timetableExists(requested);
     return exists ? requested : null;
   }
-  const rows = db ? listActiveTimetableRows(db) : listActiveTimetableRows();
+  const rows = db ? await listActiveTimetableRows(db) : await listActiveTimetableRows();
   return computeDefaultSelectedId(
     rows.map((r) => ({ id: r.id, ordinal: 0, effectiveFrom: r.effectiveFrom, isActive: 1 }))
   );
@@ -81,20 +81,20 @@ function key(day: number, periodId: number): string {
  * selects the TKB; omit it to use the default active TKB. Returns null when the
  * class does not exist or no timetable can be resolved.
  */
-export function resolveClassGrid(
+export async function resolveClassGrid(
   classId: number,
   timetableId?: number,
   db?: Db
-): WeekGrid | null {
-  const tkb = resolveTimetableId(timetableId, db);
+): Promise<WeekGrid | null> {
+  const tkb = await resolveTimetableId(timetableId, db);
   if (tkb === null) return null;
-  const cls = db ? findClass(classId, tkb, db) : findClass(classId, tkb);
+  const cls = db ? await findClass(classId, tkb, db) : await findClass(classId, tkb);
   if (!cls) return null;
-  const periods = db ? listPeriods(db) : listPeriods();
-  const lessons = db ? lessonsForClass(classId, tkb, db) : lessonsForClass(classId, tkb);
+  const periods = db ? await listPeriods(db) : await listPeriods();
+  const lessons = db ? await lessonsForClass(classId, tkb, db) : await lessonsForClass(classId, tkb);
   const teachersByLesson = db
-    ? teachersForLessons(lessons.map((l) => l.id), db)
-    : teachersForLessons(lessons.map((l) => l.id));
+    ? await teachersForLessons(lessons.map((l) => l.id), db)
+    : await teachersForLessons(lessons.map((l) => l.id));
 
   const byCoord = new Map<string, GridCell>();
   for (const l of lessons) {
@@ -122,25 +122,25 @@ export function resolveClassGrid(
  * class grid, but elective slots resolved to the single lesson the student
  * attends. Returns null when the student does not exist or no timetable resolves.
  */
-export function resolveStudentGrid(
+export async function resolveStudentGrid(
   studentId: number,
   timetableId?: number,
   db?: Db
-): WeekGrid | null {
-  const tkb = resolveTimetableId(timetableId, db);
+): Promise<WeekGrid | null> {
+  const tkb = await resolveTimetableId(timetableId, db);
   if (tkb === null) return null;
-  const st = db ? findStudent(studentId, tkb, db) : findStudent(studentId, tkb);
+  const st = db ? await findStudent(studentId, tkb, db) : await findStudent(studentId, tkb);
   if (!st) return null;
-  const cls = db ? findClass(st.classId, tkb, db) : findClass(st.classId, tkb);
+  const cls = db ? await findClass(st.classId, tkb, db) : await findClass(st.classId, tkb);
   const homeRoomId = cls?.homeRoomId ?? null;
-  const periods = db ? listPeriods(db) : listPeriods();
-  const lessons = db ? lessonsForClass(st.classId, tkb, db) : lessonsForClass(st.classId, tkb);
+  const periods = db ? await listPeriods(db) : await listPeriods();
+  const lessons = db ? await lessonsForClass(st.classId, tkb, db) : await lessonsForClass(st.classId, tkb);
   const enrolled = new Set(
-    db ? electiveLessonIdsForStudent(studentId, db) : electiveLessonIdsForStudent(studentId)
+    db ? await electiveLessonIdsForStudent(studentId, db) : await electiveLessonIdsForStudent(studentId)
   );
   const teachersByLesson = db
-    ? teachersForLessons(lessons.map((l) => l.id), db)
-    : teachersForLessons(lessons.map((l) => l.id));
+    ? await teachersForLessons(lessons.map((l) => l.id), db)
+    : await teachersForLessons(lessons.map((l) => l.id));
 
   const byCoord = new Map<string, GridCell>();
   for (const l of lessons) {
@@ -171,17 +171,17 @@ export function resolveStudentGrid(
  * the teacher teaches, each cell showing the subject and the class taught.
  * Returns null when the teacher does not exist or no timetable resolves.
  */
-export function resolveTeacherGrid(
+export async function resolveTeacherGrid(
   teacherId: number,
   timetableId?: number,
   db?: Db
-): WeekGrid | null {
-  const tkb = resolveTimetableId(timetableId, db);
+): Promise<WeekGrid | null> {
+  const tkb = await resolveTimetableId(timetableId, db);
   if (tkb === null) return null;
-  const tt = db ? findTeacher(teacherId, tkb, db) : findTeacher(teacherId, tkb);
+  const tt = db ? await findTeacher(teacherId, tkb, db) : await findTeacher(teacherId, tkb);
   if (!tt) return null;
-  const periods = db ? listPeriods(db) : listPeriods();
-  const lessons = db ? lessonsForTeacher(teacherId, tkb, db) : lessonsForTeacher(teacherId, tkb);
+  const periods = db ? await listPeriods(db) : await listPeriods();
+  const lessons = db ? await lessonsForTeacher(teacherId, tkb, db) : await lessonsForTeacher(teacherId, tkb);
 
   const byCoord = new Map<string, GridCell>();
   for (const l of lessons) {

@@ -7,6 +7,6 @@ import { recordVisit } from "../services/visit-counter.js";
  */
 export async function visitRoutes(app: FastifyInstance): Promise<void> {
   app.post("/visits", async () => {
-    return recordVisit();
+    return await recordVisit();
   });
 }

@@ -24,19 +24,19 @@ import {
  * grid views render. The later Excel-import feature will own real data; these
  * are placeholders.
  */
-export function seed(): void {
+export async function seed(): Promise<void> {
   // Single global counter row (id=1). Keep existing count if already present.
-  db.insert(visitCounter)
+  await db.insert(visitCounter)
     .values({ id: 1, count: 0 })
     .onConflictDoNothing()
     .run();
 
   // Seed two active TKBs only if none exist yet.
-  const existingTkb = db.get<{ n: number }>(
+  const existingTkb = await db.get<{ n: number }>(
     sql`SELECT COUNT(*) as n FROM ${timetable}`
   );
   if (!existingTkb || existingTkb.n === 0) {
-    db.insert(timetable)
+    await db.insert(timetable)
       .values([
         { ordinal: 1, effectiveFrom: new Date("2026-09-01T00:00:00Z"), isActive: 1 },
         { ordinal: 2, effectiveFrom: new Date("2026-09-15T00:00:00Z"), isActive: 1 },
@@ -44,18 +44,18 @@ export function seed(): void {
       .run();
   }
 
-  seedPeriods();
-  seedDirectoryAndSchedule();
+  await seedPeriods();
+  await seedDirectoryAndSchedule();
 }
 
 /** The ten canonical period rows. Afternoon period 1 has no configured time. */
-function seedPeriods(): void {
-  const existingPeriod = db.get<{ n: number }>(
+async function seedPeriods(): Promise<void> {
+  const existingPeriod = await db.get<{ n: number }>(
     sql`SELECT COUNT(*) as n FROM ${period}`
   );
   if (existingPeriod && existingPeriod.n > 0) return;
 
-  db.insert(period)
+  await db.insert(period)
     .values([
       { session: "SANG", ordinal: 1, startTime: "07g00", endTime: "07g45" },
       { session: "SANG", ordinal: 2, startTime: "07g50", endTime: "08g35" },
@@ -71,9 +71,9 @@ function seedPeriods(): void {
     .run();
 }
 
-function seedDirectoryAndSchedule(): void {
+async function seedDirectoryAndSchedule(): Promise<void> {
   // Seed the school directory + schedule only if empty.
-  const existingGrade = db.get<{ n: number }>(
+  const existingGrade = await db.get<{ n: number }>(
     sql`SELECT COUNT(*) as n FROM ${grade}`
   );
   if (existingGrade && existingGrade.n > 0) return;
@@ -81,7 +81,7 @@ function seedDirectoryAndSchedule(): void {
   // Resolve the seeded TKBs. The directory snapshot and demo schedule belong to
   // the default (latest active) TKB; the earlier TKB gets its own small snapshot
   // so lookups/grids scoped per TKB have distinct data to prove scoping.
-  const tkbs = db
+  const tkbs = await db
     .select({ id: timetable.id, ordinal: timetable.ordinal })
     .from(timetable)
     .orderBy(timetable.ordinal)
@@ -89,7 +89,7 @@ function seedDirectoryAndSchedule(): void {
   const tkbEarly = tkbs[0]!.id; // ordinal 1 (older)
   const tkbDefault = (tkbs[1] ?? tkbs[0])!.id; // ordinal 2 (latest active = default)
 
-  const [g10, g11, g12] = db
+  const [g10, g11, g12] = await db
     .insert(grade)
     .values([
       { name: "10", timetableId: tkbDefault },
@@ -100,7 +100,7 @@ function seedDirectoryAndSchedule(): void {
     .all();
 
   // Rooms: home rooms plus a couple of elective destination rooms.
-  const rooms = db
+  const rooms = await db
     .insert(room)
     .values([
       { name: "10A4", timetableId: tkbDefault },
@@ -114,7 +114,7 @@ function seedDirectoryAndSchedule(): void {
     .all();
   const roomByName = new Map(rooms.map((r) => [r.name, r.id]));
 
-  const classes = db
+  const classes = await db
     .insert(schoolClass)
     .values([
       { name: "10A4", gradeId: g10!.id, homeRoomId: roomByName.get("10A4")!, timetableId: tkbDefault },
@@ -130,7 +130,7 @@ function seedDirectoryAndSchedule(): void {
     .all();
   const classByName = new Map(classes.map((c) => [c.name, c.id]));
 
-  const students = db
+  const students = await db
     .insert(student)
     .values([
       { name: "Nguyễn Văn An", classId: classByName.get("11A")!, timetableId: tkbDefault },
@@ -145,7 +145,7 @@ function seedDirectoryAndSchedule(): void {
     .all();
   const studentByName = new Map(students.map((s) => [s.name, s.id]));
 
-  const teachers = db
+  const teachers = await db
     .insert(teacher)
     .values([
       { name: "Đỗ Minh Hùng", shortCode: "Hùng.ĐM", timetableId: tkbDefault },
@@ -170,7 +170,7 @@ function seedDirectoryAndSchedule(): void {
   const t = (name: string) => teacherByName.get(name)!;
 
   // Teacher → classes (directory relationship; keeps lookup search populated).
-  db.insert(teacherClass)
+  await db.insert(teacherClass)
     .values([
       { teacherId: t("Đỗ Minh Hùng"), classId: classByName.get("11A")! },
       { teacherId: t("Đỗ Minh Hùng"), classId: classByName.get("11B")! },
@@ -182,7 +182,7 @@ function seedDirectoryAndSchedule(): void {
     ])
     .run();
 
-  const subjects = db
+  const subjects = await db
     .insert(subject)
     .values(
       [
@@ -211,7 +211,7 @@ function seedDirectoryAndSchedule(): void {
   const s = (code: string) => subjectByCode.get(code)!;
 
   // Periods addressed by (session, ordinal).
-  const periodRows = db
+  const periodRows = await db
     .select({ id: period.id, session: period.session, ordinal: period.ordinal })
     .from(period)
     .all();
@@ -226,7 +226,7 @@ function seedDirectoryAndSchedule(): void {
    * electives can be linked to the student who attends them. Defaults to the
    * default/active TKB; pass `timetableId` to target another published TKB.
    */
-  function addLesson(opts: {
+  async function addLesson(opts: {
     classId: number;
     session: string;
     ordinal: number;
@@ -237,8 +237,8 @@ function seedDirectoryAndSchedule(): void {
     choiceGroup?: string;
     teachers: string[];
     timetableId?: number;
-  }): number {
-    const [row] = db
+  }): Promise<number> {
+    const [row] = await db
       .insert(lesson)
       .values({
         timetableId: opts.timetableId ?? tkbDefault,
@@ -254,7 +254,7 @@ function seedDirectoryAndSchedule(): void {
       .all();
     const lessonId = row!.id;
     for (const name of opts.teachers) {
-      db.insert(lessonTeacher)
+      await db.insert(lessonTeacher)
         .values({ lessonId, teacherId: t(name) })
         .run();
     }
@@ -263,74 +263,74 @@ function seedDirectoryAndSchedule(): void {
 
   // --- Demonstration schedule for class 11A5 (mirrors the student example). ---
   // Regular morning lessons (home room → not a room move).
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 2, subjectCode: "SHĐT", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 2, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 2, subjectCode: "SHĐT", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 2, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 2, subjectCode: "Chuyên 1", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
 
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 3, subjectCode: "Lịch sử", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 3, subjectCode: "Lịch sử", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 3, subjectCode: "Ngữ văn", roomName: "11A5", teachers: ["Phạm Vũ Như Quỳnh"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 3, subjectCode: "Ngữ văn", roomName: "11A5", teachers: ["Phạm Vũ Như Quỳnh"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 3, subjectCode: "HĐTNHN", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 3, subjectCode: "Lịch sử", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 3, subjectCode: "Lịch sử", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 3, subjectCode: "Ngữ văn", roomName: "11A5", teachers: ["Phạm Vũ Như Quỳnh"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 3, subjectCode: "Ngữ văn", roomName: "11A5", teachers: ["Phạm Vũ Như Quỳnh"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 3, subjectCode: "HĐTNHN", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
 
   // Wednesday elective slot (TC2) — Cao Hoàng Vĩ attends CNNN #2 in room 11C3.
-  const cnnn1 = addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 4, subjectCode: "CNNN #2", roomName: "11C3", category: 1, choiceGroup: "Tự chọn (TC2)", teachers: ["Nguyễn Thị Cẩm Lý"] });
-  const cnnn2 = addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 4, subjectCode: "CNNN #2", roomName: "11C3", category: 1, choiceGroup: "Tự chọn (TC2)", teachers: ["Nguyễn Thị Cẩm Lý"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 4, subjectCode: "Toán", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 4, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 4, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
+  const cnnn1 = await addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 4, subjectCode: "CNNN #2", roomName: "11C3", category: 1, choiceGroup: "Tự chọn (TC2)", teachers: ["Nguyễn Thị Cẩm Lý"] });
+  const cnnn2 = await addLesson({ classId: class11A5, session: "SANG", ordinal: 2, day: 4, subjectCode: "CNNN #2", roomName: "11C3", category: 1, choiceGroup: "Tự chọn (TC2)", teachers: ["Nguyễn Thị Cẩm Lý"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 4, subjectCode: "Toán", roomName: "11A5", teachers: ["Trần Hữu Trường"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 4, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 4, subjectCode: "Tiếng Anh", roomName: "11A5", teachers: ["Phạm Thị Hồng Nhung"] });
 
   // Wednesday afternoon elective (TC4) — Chuyên 2 taught in the home room.
-  const chuyen2a = addLesson({ classId: class11A5, session: "CHIEU", ordinal: 2, day: 4, subjectCode: "Chuyên 2", roomName: "11A5", category: 4, choiceGroup: "Tự chọn (TC4)", teachers: ["Đặng Thanh Thảo"] });
-  const chuyen2b = addLesson({ classId: class11A5, session: "CHIEU", ordinal: 3, day: 4, subjectCode: "Chuyên 2", roomName: "11A5", category: 4, choiceGroup: "Tự chọn (TC4)", teachers: ["Đặng Thanh Thảo"] });
+  const chuyen2a = await addLesson({ classId: class11A5, session: "CHIEU", ordinal: 2, day: 4, subjectCode: "Chuyên 2", roomName: "11A5", category: 4, choiceGroup: "Tự chọn (TC4)", teachers: ["Đặng Thanh Thảo"] });
+  const chuyen2b = await addLesson({ classId: class11A5, session: "CHIEU", ordinal: 3, day: 4, subjectCode: "Chuyên 2", roomName: "11A5", category: 4, choiceGroup: "Tự chọn (TC4)", teachers: ["Đặng Thanh Thảo"] });
 
   // Thursday elective slot (TC3) — Hóa học #6 in room 11A2.
-  const hoa1 = addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 5, subjectCode: "Hóa học #6", roomName: "11A2", category: 3, choiceGroup: "Tự chọn (TC3)", teachers: ["Nguyễn Hoàng Oanh"] });
-  const hoa2 = addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 5, subjectCode: "Hóa học #6", roomName: "11A2", category: 3, choiceGroup: "Tự chọn (TC3)", teachers: ["Nguyễn Hoàng Oanh"] });
+  const hoa1 = await addLesson({ classId: class11A5, session: "SANG", ordinal: 3, day: 5, subjectCode: "Hóa học #6", roomName: "11A2", category: 3, choiceGroup: "Tự chọn (TC3)", teachers: ["Nguyễn Hoàng Oanh"] });
+  const hoa2 = await addLesson({ classId: class11A5, session: "SANG", ordinal: 4, day: 5, subjectCode: "Hóa học #6", roomName: "11A2", category: 3, choiceGroup: "Tự chọn (TC3)", teachers: ["Nguyễn Hoàng Oanh"] });
 
   // Friday afternoon multi-teacher elective (Ngoại ngữ 2).
-  const nn2a = addLesson({ classId: class11A5, session: "CHIEU", ordinal: 2, day: 6, subjectCode: "NN2-Pháp-Trung", roomName: "11A5", category: 2, choiceGroup: "Ngoại ngữ 2", teachers: ["Hồ Minh Tâm", "Nguyễn Hoài Mai"] });
-  const nn2b = addLesson({ classId: class11A5, session: "CHIEU", ordinal: 3, day: 6, subjectCode: "NN2-Pháp-Trung", roomName: "11A5", category: 2, choiceGroup: "Ngoại ngữ 2", teachers: ["Hồ Minh Tâm", "Nguyễn Hoài Mai"] });
+  const nn2a = await addLesson({ classId: class11A5, session: "CHIEU", ordinal: 2, day: 6, subjectCode: "NN2-Pháp-Trung", roomName: "11A5", category: 2, choiceGroup: "Ngoại ngữ 2", teachers: ["Hồ Minh Tâm", "Nguyễn Hoài Mai"] });
+  const nn2b = await addLesson({ classId: class11A5, session: "CHIEU", ordinal: 3, day: 6, subjectCode: "NN2-Pháp-Trung", roomName: "11A5", category: 2, choiceGroup: "Ngoại ngữ 2", teachers: ["Hồ Minh Tâm", "Nguyễn Hoài Mai"] });
 
   // Saturday morning.
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 7, subjectCode: "GDĐP", roomName: "11A5", teachers: ["Nguyễn Hoàng Oanh"] });
-  addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 7, subjectCode: "SHCN", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 1, day: 7, subjectCode: "GDĐP", roomName: "11A5", teachers: ["Nguyễn Hoàng Oanh"] });
+  await addLesson({ classId: class11A5, session: "SANG", ordinal: 5, day: 7, subjectCode: "SHCN", roomName: "11A5", teachers: ["Đặng Thanh Thảo"] });
 
   // --- Đặng Thanh Thảo also teaches class 12A5 (cross-class teacher grid). ---
   const class12A5 = classByName.get("12A5")!;
-  addLesson({ classId: class12A5, session: "CHIEU", ordinal: 3, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
-  addLesson({ classId: class12A5, session: "CHIEU", ordinal: 4, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
-  addLesson({ classId: class12A5, session: "CHIEU", ordinal: 5, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class12A5, session: "CHIEU", ordinal: 3, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class12A5, session: "CHIEU", ordinal: 4, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
+  await addLesson({ classId: class12A5, session: "CHIEU", ordinal: 5, day: 2, subjectCode: "Chuyên 1", roomName: "12A5", teachers: ["Đặng Thanh Thảo"] });
 
   // --- Enroll Cao Hoàng Vĩ in his elective lessons. ---
   const vi = studentByName.get("Cao Hoàng Vĩ")!;
   for (const lessonId of [cnnn1, cnnn2, chuyen2a, chuyen2b, hoa1, hoa2, nn2a, nn2b]) {
-    db.insert(studentLesson).values({ studentId: vi, lessonId }).run();
+    await db.insert(studentLesson).values({ studentId: vi, lessonId }).run();
   }
 
   // --- A deliberately different, self-contained snapshot for the earlier TKB,
   // to prove directory + lessons are scoped per published timetable. The earlier
   // TKB owns its own grade/room/class/teacher/subject (same codes, distinct rows). ---
-  const [eGrade] = db
+  const [eGrade] = await db
     .insert(grade)
     .values([{ name: "11", timetableId: tkbEarly }])
     .returning({ id: grade.id })
     .all();
-  const [eRoom] = db
+  const [eRoom] = await db
     .insert(room)
     .values([{ name: "11A5", timetableId: tkbEarly }])
     .returning({ id: room.id })
     .all();
-  const [eClass] = db
+  const [eClass] = await db
     .insert(schoolClass)
     .values([
       { name: "11A5", gradeId: eGrade!.id, homeRoomId: eRoom!.id, timetableId: tkbEarly },
     ])
     .returning({ id: schoolClass.id })
     .all();
-  const eTeachers = db
+  const eTeachers = await db
     .insert(teacher)
     .values([
       { name: "Trần Hữu Trường", shortCode: "Trường.THS", timetableId: tkbEarly },
@@ -339,7 +339,7 @@ function seedDirectoryAndSchedule(): void {
     .returning({ id: teacher.id, name: teacher.name })
     .all();
   const eTeacherByName = new Map(eTeachers.map((x) => [x.name, x.id]));
-  const eSubjects = db
+  const eSubjects = await db
     .insert(subject)
     .values([
       { name: "Toán", shortCode: "Toán", timetableId: tkbEarly },
@@ -349,14 +349,14 @@ function seedDirectoryAndSchedule(): void {
     .all();
   const eSubjectByCode = new Map(eSubjects.map((x) => [x.shortCode, x.id]));
 
-  function addEarlyLesson(opts: {
+  async function addEarlyLesson(opts: {
     session: string;
     ordinal: number;
     day: number;
     subjectCode: string;
     teacher: string;
-  }): void {
-    const [row] = db
+  }): Promise<void> {
+    const [row] = await db
       .insert(lesson)
       .values({
         timetableId: tkbEarly,
@@ -370,13 +370,13 @@ function seedDirectoryAndSchedule(): void {
       })
       .returning({ id: lesson.id })
       .all();
-    db.insert(lessonTeacher)
+    await db.insert(lessonTeacher)
       .values({ lessonId: row!.id, teacherId: eTeacherByName.get(opts.teacher)! })
       .run();
   }
 
-  addEarlyLesson({ session: "SANG", ordinal: 1, day: 2, subjectCode: "Toán", teacher: "Trần Hữu Trường" });
-  addEarlyLesson({ session: "SANG", ordinal: 2, day: 2, subjectCode: "Ngữ văn", teacher: "Phạm Vũ Như Quỳnh" });
+  await addEarlyLesson({ session: "SANG", ordinal: 1, day: 2, subjectCode: "Toán", teacher: "Trần Hữu Trường" });
+  await addEarlyLesson({ session: "SANG", ordinal: 2, day: 2, subjectCode: "Ngữ văn", teacher: "Phạm Vũ Như Quỳnh" });
 
   // Silence unused-var lint for room reference kept for clarity.
   void room11A5;
@@ -384,6 +384,10 @@ function seedDirectoryAndSchedule(): void {
 
 // Allow running directly: `tsx src/db/seed.ts`.
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
-  seed();
-  console.log("Seed complete.");
+  seed()
+    .then(() => console.log("Seed complete."))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }

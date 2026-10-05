@@ -1,17 +1,19 @@
-import Database from "better-sqlite3";
-import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema.js";
+import type { Db } from "./index.js";
 
-export type Db = BetterSQLite3Database<typeof schema>;
+export type { Db };
 
 /**
  * Creates an isolated in-memory database with the current schema applied,
- * for use in repository/service tests. Mirrors the production table shapes
- * in `schema.ts`.
+ * for use in repository/service tests. Uses the same async libSQL driver as
+ * production, so test and runtime behavior match. Mirrors the production table
+ * shapes in `schema.ts`.
  */
-export function createTestDb(): Db {
-  const sqlite = new Database(":memory:");
-  sqlite.exec(`
+export async function createTestDb(): Promise<Db> {
+  const client = createClient({ url: ":memory:" });
+  await client.executeMultiple(`
     CREATE TABLE visit_counter (
       id INTEGER PRIMARY KEY,
       count INTEGER NOT NULL DEFAULT 0
@@ -92,5 +94,5 @@ export function createTestDb(): Db {
       lesson_id INTEGER NOT NULL REFERENCES lesson(id)
     );
   `);
-  return drizzle(sqlite, { schema });
+  return drizzle(client, { schema });
 }

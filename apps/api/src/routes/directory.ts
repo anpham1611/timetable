@@ -29,14 +29,14 @@ function parseTkb(raw: string | undefined): number | undefined {
  */
 export async function directoryRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: ClassesQuerystring }>("/classes", async (req) => {
-    return getClasses(parseTkb(req.query.tkb));
+    return await getClasses(parseTkb(req.query.tkb));
   });
 
   app.get<{ Querystring: SearchQuerystring }>("/students", async (req) => {
-    return getStudents(req.query.q ?? "", parseTkb(req.query.tkb));
+    return await getStudents(req.query.q ?? "", parseTkb(req.query.tkb));
   });
 
   app.get<{ Querystring: SearchQuerystring }>("/teachers", async (req) => {
-    return getTeachers(req.query.q ?? "", parseTkb(req.query.tkb));
+    return await getTeachers(req.query.q ?? "", parseTkb(req.query.tkb));
   });
 }

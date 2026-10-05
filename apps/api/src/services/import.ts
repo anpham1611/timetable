@@ -33,24 +33,24 @@ export async function importTimetable(
 ): Promise<ImportResult> {
   const plan: ImportPlan = await parseWorkbook(buffer);
 
-  const result = db.transaction((tx) => {
-    const timetableId = createTimetable(new Date(plan.effectiveFrom), tx);
+  const result = await db.transaction(async (tx) => {
+    const timetableId = await createTimetable(new Date(plan.effectiveFrom), tx);
 
     // Directory snapshot: insert each declared entity once, keyed by business
     // code (normalized) so lessons/students can resolve references to the row id.
     const gradeIdByCode = new Map<string, number>();
     for (const g of plan.grades) {
-      gradeIdByCode.set(normalizeKey(g.code), insertGrade(timetableId, g.name, tx));
+      gradeIdByCode.set(normalizeKey(g.code), await insertGrade(timetableId, g.name, tx));
     }
 
     // Rooms are declared implicitly by class home rooms and lesson rooms; create
     // each distinct room name once within this TKB.
     const roomIdByKey = new Map<string, number>();
-    const ensureRoomId = (name: string): number => {
+    const ensureRoomId = async (name: string): Promise<number> => {
       const key = normalizeKey(name);
       const existing = roomIdByKey.get(key);
       if (existing !== undefined) return existing;
-      const id = insertRoom(timetableId, name, tx);
+      const id = await insertRoom(timetableId, name, tx);
       roomIdByKey.set(key, id);
       return id;
     };
@@ -58,17 +58,17 @@ export async function importTimetable(
     const classIdByCode = new Map<string, number>();
     for (const c of plan.classes) {
       const gradeId = gradeIdByCode.get(normalizeKey(c.gradeCode))!;
-      const homeRoomId = c.homeRoom === null ? null : ensureRoomId(c.homeRoom);
+      const homeRoomId = c.homeRoom === null ? null : await ensureRoomId(c.homeRoom);
       classIdByCode.set(
         normalizeKey(c.code),
-        insertClass(timetableId, c.name, gradeId, homeRoomId, tx)
+        await insertClass(timetableId, c.name, gradeId, homeRoomId, tx)
       );
     }
 
     let studentsCreated = 0;
     for (const s of plan.students) {
       const classId = classIdByCode.get(normalizeKey(s.classCode))!;
-      insertStudent(timetableId, s.name, classId, tx);
+      await insertStudent(timetableId, s.name, classId, tx);
       studentsCreated += 1;
     }
 
@@ -76,18 +76,18 @@ export async function importTimetable(
     for (const t of plan.teachers) {
       teacherIdByCode.set(
         normalizeKey(t.code),
-        insertTeacher(timetableId, t.name, t.code, tx)
+        await insertTeacher(timetableId, t.name, t.code, tx)
       );
     }
 
     // Subjects are declared on lessons (name + short code); create each distinct
     // short code once within this TKB.
     const subjectIdByCode = new Map<string, number>();
-    const ensureSubjectId = (name: string, shortCode: string): number => {
+    const ensureSubjectId = async (name: string, shortCode: string): Promise<number> => {
       const key = normalizeKey(shortCode);
       const existing = subjectIdByCode.get(key);
       if (existing !== undefined) return existing;
-      const id = insertSubject(timetableId, name, shortCode, tx);
+      const id = await insertSubject(timetableId, name, shortCode, tx);
       subjectIdByCode.set(key, id);
       return id;
     };
@@ -95,10 +95,10 @@ export async function importTimetable(
     let lessonsCreated = 0;
     for (const l of plan.lessons) {
       const classId = classIdByCode.get(normalizeKey(l.classCode))!;
-      const subjectId = ensureSubjectId(l.subjectName, l.subjectShortCode);
-      const periodId = ensurePeriod(l.session, l.periodOrdinal, tx);
-      const roomId = l.room === null ? null : ensureRoomId(l.room);
-      const lessonId = insertLesson(
+      const subjectId = await ensureSubjectId(l.subjectName, l.subjectShortCode);
+      const periodId = await ensurePeriod(l.session, l.periodOrdinal, tx);
+      const roomId = l.room === null ? null : await ensureRoomId(l.room);
+      const lessonId = await insertLesson(
         {
           timetableId,
           classId,
@@ -113,7 +113,7 @@ export async function importTimetable(
       );
       lessonsCreated += 1;
       for (const code of l.teacherCodes) {
-        insertLessonTeacher(lessonId, teacherIdByCode.get(normalizeKey(code))!, tx);
+        await insertLessonTeacher(lessonId, teacherIdByCode.get(normalizeKey(code))!, tx);
       }
     }
 

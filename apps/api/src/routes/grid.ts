@@ -42,7 +42,7 @@ export async function gridRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const id = parseId(req.params.id);
       if (id === null) return notFound(reply, "class");
-      const grid = resolveClassGrid(id, parseTkb(req.query.tkb));
+      const grid = await resolveClassGrid(id, parseTkb(req.query.tkb));
       if (!grid) return notFound(reply, "class");
       return grid;
     }
@@ -53,7 +53,7 @@ export async function gridRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const id = parseId(req.params.id);
       if (id === null) return notFound(reply, "student");
-      const grid = resolveStudentGrid(id, parseTkb(req.query.tkb));
+      const grid = await resolveStudentGrid(id, parseTkb(req.query.tkb));
       if (!grid) return notFound(reply, "student");
       return grid;
     }
@@ -64,7 +64,7 @@ export async function gridRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const id = parseId(req.params.id);
       if (id === null) return notFound(reply, "teacher");
-      const grid = resolveTeacherGrid(id, parseTkb(req.query.tkb));
+      const grid = await resolveTeacherGrid(id, parseTkb(req.query.tkb));
       if (!grid) return notFound(reply, "teacher");
       return grid;
     }

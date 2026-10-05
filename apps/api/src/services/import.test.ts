@@ -62,31 +62,39 @@ async function workbook(opts: {
 /** Wraps the test db so the Nth `.insert(lesson)` throws, to test rollback. */
 function failingLessonInsertDb(db: Db, failOnCall: number): Db {
   let calls = 0;
-  return new Proxy(db, {
-    get(target, prop, receiver) {
-      if (prop === "insert") {
-        return (table: unknown) => {
-          if (table === lesson) {
-            calls += 1;
-            if (calls === failOnCall) throw new Error("simulated mid-import failure");
-          }
-          return (target.insert as (t: unknown) => unknown)(table);
-        };
-      }
-      if (prop === "transaction") {
-        return (fn: (tx: Db) => unknown) =>
-          (target.transaction as (f: (tx: Db) => unknown) => unknown)(() =>
-            fn(receiver as Db)
-          );
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-  }) as Db;
+  // Wrap any db/tx handle so `.insert(lesson)` fails on the Nth call. The real
+  // transaction handle (supplied by drizzle) is wrapped too, so the injected
+  // failure fires on the actual transactional connection and drizzle rolls back
+  // cleanly on the same session.
+  const wrap = <T extends object>(handle: T): T =>
+    new Proxy(handle, {
+      get(target, prop, receiver) {
+        if (prop === "insert") {
+          return (table: unknown) => {
+            if (table === lesson) {
+              calls += 1;
+              if (calls === failOnCall) {
+                throw new Error("simulated mid-import failure");
+              }
+            }
+            return (target.insert as (t: unknown) => unknown)(table);
+          };
+        }
+        if (prop === "transaction") {
+          return (fn: (tx: Db) => unknown) =>
+            (target.transaction as (f: (tx: Db) => unknown) => unknown)(
+              (realTx: Db) => fn(wrap(realTx))
+            );
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    }) as T;
+  return wrap(db);
 }
 
 describe("importTimetable", () => {
   it("inserts a TKB-scoped snapshot and returns correct counts", async () => {
-    const db = createTestDb();
+    const db = await createTestDb();
     const res = await importTimetable(await workbook(), db);
 
     expect(res.lessonsCreated).toBe(2);
@@ -97,34 +105,34 @@ describe("importTimetable", () => {
     expect(res.subjectsCreated).toBe(2); // TOAN, VAN
     expect(res.roomsCreated).toBe(2); // P.201 (home room) + P.202 (lesson room)
 
-    const tkb = db.select().from(timetable).all().find((t) => t.id === res.timetableId)!;
+    const tkb = (await db.select().from(timetable).all()).find((t) => t.id === res.timetableId)!;
     expect(tkb.isActive).toBe(0);
-    expect(db.select().from(lesson).all()).toHaveLength(2);
-    expect(db.select().from(student).all()).toHaveLength(1);
+    expect(await db.select().from(lesson).all()).toHaveLength(2);
+    expect(await db.select().from(student).all()).toHaveLength(1);
   });
 
   it("creates a distinct independent snapshot on a second import", async () => {
-    const db = createTestDb();
+    const db = await createTestDb();
     const first = await importTimetable(await workbook(), db);
     const second = await importTimetable(await workbook(), db);
     expect(second.timetableId).not.toBe(first.timetableId);
-    expect(db.select().from(timetable).all()).toHaveLength(2);
+    expect(await db.select().from(timetable).all()).toHaveLength(2);
     // Two independent lesson sets.
-    expect(db.select().from(lesson).all()).toHaveLength(4);
+    expect(await db.select().from(lesson).all()).toHaveLength(4);
   });
 
   it("rolls back entirely when a row fails midway", async () => {
-    const db = createTestDb();
+    const db = await createTestDb();
     const wrapped = failingLessonInsertDb(db, 2);
     await expect(importTimetable(await workbook(), wrapped)).rejects.toThrow(/mid-import/);
-    expect(db.select().from(timetable).all()).toHaveLength(0);
-    expect(db.select().from(lesson).all()).toHaveLength(0);
-    expect(db.select().from(student).all()).toHaveLength(0);
+    expect(await db.select().from(timetable).all()).toHaveLength(0);
+    expect(await db.select().from(lesson).all()).toHaveLength(0);
+    expect(await db.select().from(student).all()).toHaveLength(0);
   });
 
   it("rejects an invalid workbook without creating anything", async () => {
-    const db = createTestDb();
+    const db = await createTestDb();
     await expect(importTimetable(Buffer.from("not xlsx"), db)).rejects.toThrow();
-    expect(db.select().from(timetable).all()).toHaveLength(0);
+    expect(await db.select().from(timetable).all()).toHaveLength(0);
   });
 });
