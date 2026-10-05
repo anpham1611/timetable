@@ -12,6 +12,7 @@
     { "source": "/classes/:path*", "destination": "/api/[...path]" },
     { "source": "/students/:path*", "destination": "/api/[...path]" },
     { "source": "/teachers/:path*", "destination": "/api/[...path]" },
-    { "source": "/grids/:path*", "destination": "/api/[...path]" }
+    { "source": "/grids/:path*", "destination": "/api/[...path]" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
